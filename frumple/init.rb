@@ -5,6 +5,10 @@ Redmine::Plugin.register :frumple do
   version '0.01'
   url 'https://github.com/ameily/frumple'
   author_url 'https://github.com/ameily'
+  
+  settings :default => {
+      
+  }, :partial => 'settings/frumple_settings'
 end
 
 Project.class_eval do
