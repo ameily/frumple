@@ -1,3 +1,8 @@
+
+require_dependency 'econ/events'
+require_dependency 'econ/base'
+require_dependency 'econ/fair'
+
 Redmine::Plugin.register :frumple do
   name 'Frumple Stock Index'
   author 'Adam Meily'
@@ -6,9 +11,7 @@ Redmine::Plugin.register :frumple do
   url 'https://github.com/ameily/frumple'
   author_url 'https://github.com/ameily'
   
-  settings :default => {
-      
-  }, :partial => 'settings/frumple_settings'
+  settings :default => { 'test' => 100 }, :partial => 'settings/frumple_settings'
 end
 
 Project.class_eval do
