@@ -48,27 +48,28 @@ namespace :frumple do
         Changeset.find_each do |cs|
             dv = 1
             dp = 0.01
-            action = "repo.commit.#{cs.revision}"
+            trigger = "repo.commit.#{cs.revision}"
             market = repos[cs.repository_id]
             
             dp += 0.005 * cs.issues.length
             
-            stock_id = nil
+            stock_history = nil
             if cs.user_id
                 stock = cs.user.stock
-                stock_id = stock.id
-                objs << StockHistory.new(
-                    :action => action,
+                stock_history = StockHistory.new(
+                    :trigger => trigger,
+                    :market => market,
                     :dv => dv,
                     :dp => dp,
                     :stock => stock,
                     :posted => cs.committed_on
                 )
+                objs << stock_history
             end
             
             objs << MarketHistory.create(
-                :action => action,
-                :stock_id => stock_id,
+                :trigger => trigger,
+                :stock_history => stock_history,
                 :market => market,
                 :dv => dv,
                 :dp => dp,
@@ -76,7 +77,7 @@ namespace :frumple do
             )
         end
         
-        puts "==> Saving stock/market history..."
+        puts "==> Saving history..."
         MarketHistory.transaction do
             objs.each do |obj|
                 obj.save(:validate => false)
@@ -87,39 +88,48 @@ namespace :frumple do
     desc "Import Attachments"
     task :attachments => :environment do
         puts "Importing Attachments..."
+        objs = [ ]
         Attachment.find_each do |attach|
             dv = 2
             dp = 0.001
-            action = "attachment.#{attach.id}.create"
-            stock_id = nil
+            trigger = "attachment.#{attach.id}.create"
             
+            market = nil
+            if attach.container_type == 'Project'
+                market = attach.container.market
+            elsif attach.container
+                market = attach.container.project.market
+            end
+            
+            stock_history = nil
             if attach.author_id
-                stock = attach.author.stock
-                StockHistory.create(
-                    :action => action,
+                stock_history = StockHistory.new(
+                    :trigger => trigger,
+                    :market => market,
                     :dv => dv,
                     :dp => dp,
-                    :stock => stock,
+                    :stock => attach.author.stock,
                     :posted => attach.created_on
                 )
+                objs << stock_history
             end
             
-            project = nil
-            if attach.container_type == 'Project'
-                project = attach.container
-            elsif attach.container
-                project = attach.container.project
-            end
-            
-            if project
-                MarketHistory.create(
-                    :action => action,
+            if market.nil?
+                objs << MarketHistory.new(
+                    :trigger => trigger,
                     :dv => dv,
                     :dp => dp,
-                    :stock_id => stock_id,
+                    :stock_history => stock_history,
                     :posted => attach.created_on,
-                    :market => project.market
+                    :market => market
                 )
+            end
+        end
+        
+        puts "==> Saving history..."
+        MarketHistory.transaction do
+            objs.each do |obj|
+                obj.save(:validate => false)
             end
         end
     end
@@ -133,10 +143,10 @@ namespace :frumple do
             dp = 0.0
             dv = 3
             objs << MarketHistory.new(
-                :action => 'wiki.create',
+                :trigger => 'wiki.create',
                 :dv => dv,
                 :dp => dp,
-                :stock_id => nil,
+                :stock_history => nil,
                 :posted => wiki.project.created_on,
                 :market => wiki.project.market
             )
@@ -150,14 +160,12 @@ namespace :frumple do
             dp = 0.0
             wiki = wikis[page.wiki_id]
             objs << MarketHistory.new(
-                :action => "wiki.page.#{page.title}.create",
+                :trigger => "wiki.page.#{page.title}.create",
                 :dv => dv,
                 :dp => dp,
-                :stock_id => nil,
                 :posted => page.created_on,
                 :market => wiki.project.market
             )
-            
             
             items = [ ]
             dv = 2
@@ -186,28 +194,29 @@ namespace :frumple do
             end
             
             items.each do |i|
-                action = "wiki.page.#{page.title}.version.#{i[:id]}{delta=#{i[:diff]}}"
+                trigger = "wiki.page.#{page.title}.version.#{i[:id]}{delta=#{i[:diff]}}"
                 v = dv + (ddv * i[:diff])
-                objs << MarketHistory.new(
-                    :action => action,
-                    :dv => v,
-                    :dp => dp,
-                    :posted => i[:posted],
-                    :stock_id => i[:stock].id,
-                    :market => wiki.project.market
-                )
-                
-                objs << StockHistory.new(
-                    :action => action,
+                sh = StockHistory.new(
+                    :trigger => trigger,
                     :dv => v,
                     :dp => dp,
                     :stock => i[:stock],
                     :posted => i[:posted]
                 )
+                objs << sh
+                
+                objs << MarketHistory.new(
+                    :trigger => trigger,
+                    :dv => v,
+                    :dp => dp,
+                    :posted => i[:posted],
+                    :stock_history => sh,
+                    :market => wiki.project.market
+                )
             end
         end
         
-        puts "==> Saving stock/market history..."
+        puts "==> Saving history..."
         MarketHistory.transaction do
             objs.each do |obj|
                 obj.save(:validate => false)
@@ -222,7 +231,7 @@ namespace :frumple do
         Issue.find_each do |issue|
             market = issue.project.market
             stock = issue.author.stock
-            action = "issue.#{issue.id}.create"
+            trigger = "issue.#{issue.id}.create"
             dvs = {
                 "Feature" => 5,
                 "Support" => 3,
@@ -232,7 +241,7 @@ namespace :frumple do
             dps = {
                 "Feature" => 0.07,
                 "Bug" => 0.10,
-                "Support", 0.5
+                "Support" => 0.5
             }
             
             dv = dvs[issue.tracker.name]
@@ -243,7 +252,7 @@ namespace :frumple do
                 :stock_id => stock_id,
                 :dv => dv,
                 :dp => dp,
-                :action => action,
+                :trigger => trigger,
                 :posted => issue.created_on
             )
             
@@ -251,7 +260,7 @@ namespace :frumple do
                 :stock => stock,
                 :dv => dv,
                 :dp => dp,
-                :action => action,
+                :trigger => trigger,
                 :posted => issue.created_on
             )
             

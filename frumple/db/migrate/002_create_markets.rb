@@ -6,9 +6,5 @@ class CreateMarkets < ActiveRecord::Migration
       t.float :price
       t.datetime :last_update
     end
-    
-    change_table :markets do |t|
-        t.remove :fuck
-    end
   end
 end
