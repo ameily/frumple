@@ -1,6 +1,7 @@
 class Market < ActiveRecord::Base
   belongs_to :project
   has_many :history, :foreign_key => 'market_id', :class_name => 'MarketHistory'
+  has_many :stock_history, :foreign_key => 'market_id', :class_name => 'StockHistory'
   
   def gdp
     self[:price] * self[:volume]
