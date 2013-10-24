@@ -17,5 +17,21 @@ class Market < ActiveRecord::Base
     end
     sum
   end
+  
+    def post(history)
+        history.market = self
+        history.volume = self.volume += history.dv
+        history.price = self.price += history.dp
+        
+        if self.last_update.nil? or history.posted > self.last_update
+            self.last_update = history.posted
+        end
+        
+        self.save()
+        history.save()
+        
+        history
+  end
+  
 end
 
