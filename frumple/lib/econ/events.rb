@@ -6,6 +6,9 @@ module Frumple
             #attr_accessor :market
             #attr_accessor :stock
             attr_accessor :trigger
+            attr_accessor :market
+            attr_accessor :stock
+            attr_accessor :timestamp
         end
         
         class ProjectEvent < Event
@@ -15,6 +18,9 @@ module Frumple
         class ProjectCreateEvent < ProjectEvent
             def initialize(project)
                 @project = project
+                @market = project.market
+                @stock = nil
+                @timestamp = project.created_on
                 @trigger = 'project.create'
             end
         end
@@ -26,6 +32,9 @@ module Frumple
         class UserRegisterEvent < UserEvent
             def initialize(user)
                 @user = user
+                @stock = user.stock
+                @market = nil
+                @timestamp = user.created_on
                 @trigger = "user.register"
             end
         end
@@ -37,6 +46,22 @@ module Frumple
         class AttachmentUploadEvent < AttachmentEvent
             def initialize(attachment)
                 @attachment = attachment
+                
+                if attachment.author
+                    @stock = attachment.author.stock
+                else
+                    @stock = nil
+                end
+                
+                if attachment.container_type == 'Project'
+                    @market = attachment.container.market
+                elsif attachment.container
+                    @market = attachment.container.project.market
+                else
+                    @market = nil
+                end
+                
+                @timestamp = attachment.created_on
                 @trigger = "attachment.upload.#{attachment.id}"
             end
         end
@@ -50,6 +75,25 @@ module Frumple
             
             def initialize(changeset)
                 @repo = changeset.repository
+                @timestamp = changeset.committed_on
+                
+                if @repo and @repo.project
+                    @market = @repo.project.market
+                else
+                    @market = nil
+                end
+                #if @repo.project
+                #    @market = @repo.project.market
+                #else
+                #    @market = nil
+                #end
+                
+                if changeset.user
+                    @stock = changeset.user.stock
+                else
+                    @stock = nil
+                end
+                
                 @changeset = changeset
                 @trigger = "repo.commit.#{changeset.id}"
             end
@@ -62,6 +106,9 @@ module Frumple
         class WikiCreateEvent < WikiEvent
             def initialize(wiki)
                 @wiki = wiki
+                @market = wiki.project.market
+                @stock = nil
+                @timestamp = wiki.project.created_on
                 @trigger = "wiki.create.#{wiki.id}"
             end
         end
@@ -71,6 +118,9 @@ module Frumple
             
             def initialize(page)
                 @wiki = page.wiki
+                @market = @wiki.project.market
+                @stock = nil
+                @timestamp = page.created_on
                 @page = page
                 @trigger = "wiki.page.create.#{page.id}"
             end
@@ -83,6 +133,15 @@ module Frumple
             def initialize(version)
                 @page = version.page
                 @wiki = @page.wiki
+                @market = @wiki.project.market
+                
+                if not version.author.nil?
+                    @stock = version.author.stock
+                else
+                    @stock = nil
+                end
+                
+                @timestamp = version.updated_on
                 @version = version
                 @trigger = "wiki.page.edit.#{version.id}"
             end

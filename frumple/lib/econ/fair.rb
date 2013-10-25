@@ -12,8 +12,46 @@ module Frumple
         def initialize()
         end
         
+        def post(hists)
+            if hists[:stock]
+                hists[:stock].post(true)
+            end
+            
+            if hists[:market]
+                hists[:market].post(true)
+            end
+        end
+        
+        def create_histories(event, ds = { :dv => 0, :dp => 0.0 }, dm = { :dv => 0, :dp => 0.0 })
+            sh = mh = nil
+            
+            if event.stock
+                sh = StockHistory.new(
+                    :market => event.market,
+                    :stock => event.stock,
+                    :dv => ds[:dv],
+                    :dp => ds[:dp],
+                    :posted => event.timestamp,
+                    :trigger => event.trigger
+                )
+            end
+            
+            if event.market
+                mh = MarketHistory.new(
+                    :market => event.market,
+                    :stock_history => sh,
+                    :dv => dm[:dv],
+                    :dp => dm[:dp],
+                    :posted => event.timestamp,
+                    :trigger => event.trigger
+                )
+            end
+            
+            { :stock => sh, :market => mh }
+        end
+        
         def on_project_create(event)
-            market = Market.new(
+            market = Market.create(
                 :project => event.project,
                 :volume => 0,
                 :price => 0.0
@@ -24,17 +62,17 @@ module Frumple
                     :trigger => event.trigger,
                     :dv => 0,
                     :dp => 0.20,
-                    :posted => event.project.created_on
+                    :posted => event.timestamp
                 )
             )
         end
         
         def on_user_register(event)
-            stock = Stock.new(
+            stock = Stock.create(
                 :user => event.user,
                 :price => 0.0,
                 :volume => 0,
-                :last_update => event.user.created_on
+                :last_update => event.timestamp
             )
             
             stock.post(
@@ -42,62 +80,29 @@ module Frumple
                     :trigger => event.trigger,
                     :dp => 0.20,
                     :dv => 0,
-                    :posted => event.user.created_on
+                    :posted => event.timestamp
                 )
             )
         end
         
         def on_attachment_upload(event)
-            market = hist = nil
-            if event.attachment.container_type == "Project"
-                market = event.attachment.container.market
-            else
-                market = event.attachment.container.project.market
-            end
-            
-            if event.attachment.user
-                hist = event.attachment.user.stock.post(
-                    StockHistory.new(
-                        :trigger => event.trigger,
-                        :market => market,
-                        :dv => 2,
-                        :dp => 0.001,
-                        :posted => event.attachment.created_on
-                    )
-                )
-            end
-            
-            market.post(
-                MarketHistory.new(
-                    :trigger => event.trigger,
-                    :dv => 2,
-                    :dp => 0.001,
-                    :stock_history => hist,
-                    :posted => event.attachment.created_on
-                )
-            )
+            deltas = { :dv => 2, :dp => 0.001 }
+            hists = self.create_histories(event, deltas, deltas)
+            self.post(hists)
         end
         
         def on_wiki_create(event)
-            market = event.wiki.project.market
-            market.post(
-                MaketHistory.new(
-                    :trigger => event.trigger,
-                    :dv => 3,
-                    :dp => 0.0,
-                    :posted => event.wiki.created_on
+            self.post(
+                self.create_histories(
+                    event, nil, { :dv => 3, :dp => 0.0 }
                 )
             )
         end
         
         def on_wiki_page_create(event)
-            market = event.wiki.project.market
-            market.post(
-                MarketHistory.new(
-                    :trigger => event.trigger,
-                    :dv => 5,
-                    :dp => 0.0,
-                    :posted => event.page.created_on
+            self.post(
+                self.create_histories(
+                    event, nil, { :dv => 5, :dp => 0.0 }
                 )
             )
         end
@@ -106,67 +111,39 @@ module Frumple
             market = event.wiki.project.market
             hist = nil
             
-            previous = nil
-            event.page.content.version.each  do |v|
-                previous = v
-            end
-            
-            dv = 2
-            if previous
-                diff = event.version.data.length - previous.data.length
-                if diff > 0
-                    dv += 0.02 * diff
+            previous = current = nil
+            event.page.content.versions.each do |v|
+                previous = current
+                current = v
+                if current.id == event.version.id
+                    break
                 end
             end
             
-            if event.version.author
-                stock = event.version.author.stock
-                hist = stock.post(
-                    StockHistory.new(
-                        :trigger => event.trigger,
-                        :posted => event.version.updated_on,
-                        :mareket => market,
-                        :dv => dv,
-                        :dp => 0.03
-                    )
-                )
+            
+            deltas = { :dv => 1, :dp => 0 }
+            if previous
+                diff = event.version.data.length - previous.data.length
+                if diff > 0
+                    #deltas[:dv] += 0.02 * diff
+                end
             end
             
-            market.post(
-                MarketHistory.new(
-                    :trigger => event.trigger,
-                    :posted => event.version.updated_on,
-                    :dv => dv,
-                    :dp => 0.03,
-                    :stock_history => hist
+            self.post(
+                self.create_histories(
+                    event, deltas, deltas
                 )
             )
         end
         
         def on_repo_commit(event)
             hist = nil
-            market = event.changeset.project.market
-            dp = 0.01 + (0.005 * event.changeset.issues.length)
+            deltas = { :dv => 1, :dp => 0.01 }
+            deltas[:dp] += 0.005 * event.changeset.issues.length
             
-            if event.changeset.user
-                hist = event.changeset.committer.stock.post(
-                    StockHistory.new(
-                        :trigger => event.trigger,
-                        :dv => 1,
-                        :dp => dp,
-                        :market => market,
-                        :posted => event.changeset.committed_on
-                    )
-                )
-            end
-            
-            market.post(
-                MarketHistory.new(
-                    :trigger => event.trigger,
-                    :dv => 1,
-                    :dp => dp,
-                    :stock_history => hist,
-                    :posted => event.changeset.committed_on
+            self.post(
+                self.create_histories(
+                    event, deltas, deltas
                 )
             )
         end
