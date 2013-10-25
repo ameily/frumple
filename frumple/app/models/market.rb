@@ -27,8 +27,8 @@ class Market < ActiveRecord::Base
             self.last_update = history.posted
         end
         
-        self.save()
-        history.save()
+        self.save({ :validate => false })
+        history.save({ :validate => false })
         
         history
   end

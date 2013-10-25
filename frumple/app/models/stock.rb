@@ -8,15 +8,15 @@ class Stock < ActiveRecord::Base
   
     def post(history)
         history.stock = self
-        history.volume = self.volume += history.dv
-        history.price = self.price += history.dp
+        history.volume = (self.volume += history.dv)
+        history.price = (self.price += history.dp)
         
         if self.last_update.nil? or history.posted > self.last_update
             self.last_update = history.posted
         end
         
-        self.save()
-        history.save()
+        self.save({ :validate => false })
+        history.save({ :validate => false })
         
         history
     end
