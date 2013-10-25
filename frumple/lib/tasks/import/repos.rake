@@ -2,52 +2,28 @@ namespace :frumple do
   namespace :import do
     desc "Import Repositories"
     task :repos => :environment do
-        puts "Importing Repos..."
-        objs = [ ]
-        repos = { }
-        Repository.find_each do |repo|
-            repos[repo.id] = repo.project.market
-        end
+        econ = Frumple::Econ::FairEconomy.new()
+        events = []
+        puts "Importing Repositories"
+        print "    Creating commit events... "
+        $stdout.flush
         
-        puts "==> Importing Changesets..."
         Changeset.find_each do |cs|
-            dv = 1
-            dp = 0.01
-            trigger = "repo.commit.#{cs.revision}"
-            market = repos[cs.repository_id]
-            
-            dp += 0.005 * cs.issues.length
-            
-            stock_history = nil
-            if cs.user_id
-                stock = cs.user.stock
-                stock_history = StockHistory.new(
-                    :trigger => trigger,
-                    :market => market,
-                    :dv => dv,
-                    :dp => dp,
-                    :stock => stock,
-                    :posted => cs.committed_on
-                )
-                objs << stock_history
-            end
-            
-            objs << MarketHistory.create(
-                :trigger => trigger,
-                :stock_history => stock_history,
-                :market => market,
-                :dv => dv,
-                :dp => dp,
-                :posted => cs.committed_on
-            )
+            events << Frumple::Econ::Events::RepoCommitEvent.new(cs)
         end
         
-        puts "==> Saving history..."
-        MarketHistory.transaction do
-            objs.each do |obj|
-                obj.save(:validate => false)
+        puts "Done!"
+        print "    Saving #{events.length} events... "
+        $stdout.flush
+        
+        Project.transaction do
+            events.each do |e|
+                econ.dispatch(e)
             end
         end
+        
+        puts "Done!"
+        puts "Done"
     end
   end
 end
