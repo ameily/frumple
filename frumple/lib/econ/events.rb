@@ -41,9 +41,9 @@ module Frumple
         
         class AttachmentEvent < Event
             attr_accessor :attachment
-        end
-        
-        class AttachmentUploadEvent < AttachmentEvent
+            attr_accessor :market
+            attr_accessor :stock
+            
             def initialize(attachment)
                 @attachment = attachment
                 
@@ -53,16 +53,29 @@ module Frumple
                     @stock = nil
                 end
                 
-                if attachment.container_type == 'Project'
-                    @market = attachment.container.market
-                elsif attachment.container
-                    @market = attachment.container.project.market
+                if attachment.container
+                    @market = attachment.project.market
                 else
                     @market = nil
                 end
+            end
+        end
+        
+        class AttachmentUploadEvent < AttachmentEvent
+            def initialize(attachment)
+                super(attachment)
                 
                 @timestamp = attachment.created_on
                 @trigger = "attachment.upload.#{attachment.id}"
+            end
+        end
+        
+        class AttachmentDeleteEvent < AttachmentEvent
+            def initialize(attachment)
+                super(attachment)
+                
+                @timestamp = DateTime.now()
+                @trigger = "attachment.delete.#{attachment.id}"
             end
         end
         

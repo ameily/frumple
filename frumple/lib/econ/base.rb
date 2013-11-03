@@ -53,12 +53,18 @@ module Frumple
             case event
             when Events::AttachmentUploadEvent
                 self.on_attachment_upload(event)
+            when Events::AttachmentDeleteEvent
+                self.on_attachment_delete(event)
             else
                 raise NotImplementedError
             end
         end
         
         def on_attachment_upload(event)
+            raise NotImplementedError
+        end
+        
+        def on_attachment_delete(event)
             raise NotImplementedError
         end
         

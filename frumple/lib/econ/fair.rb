@@ -1,11 +1,11 @@
 module Frumple
   module Econ
     class FairEconomy < BaseEconomy
-        @@id = 'fair'
-        @@name = 'Fair Economy'
-        @@version = '0.1'
-        @@author = 'Adam Meily'
-        @@email = 'meily.adam@gmail.com'
+        @@id = "fair"
+        @@name = "Fair Economy"
+        @@version = "0.1"
+        @@author = "Adam Meily"
+        @@email = "meily.adam@gmail.com"
         @@contribs = []
         @@description = "An economy that is fair."
         
@@ -87,6 +87,12 @@ module Frumple
         
         def on_attachment_upload(event)
             deltas = { :dv => 2, :dp => 0.001 }
+            hists = self.create_histories(event, deltas, deltas)
+            self.post(hists)
+        end
+        
+        def on_attachment_delete(event)
+            deltas = { :dv => -2, :dp => -0.001 }
             hists = self.create_histories(event, deltas, deltas)
             self.post(hists)
         end
