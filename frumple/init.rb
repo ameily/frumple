@@ -2,6 +2,10 @@
 require_dependency 'econ/events'
 require_dependency 'econ/base'
 require_dependency 'econ/fair'
+require_dependency 'hooks/attachment'
+
+#ActiveRecord::Base.observers << :attachment_observer
+ActiveRecord::Base.observers << Frumple::Hooks::AttachmentObserver
 
 Redmine::Plugin.register :frumple do
   name 'Frumple Stock Index'
