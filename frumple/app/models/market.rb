@@ -1,23 +1,23 @@
 class Market < ActiveRecord::Base
-  belongs_to :project
-  has_many :history, :foreign_key => 'market_id', :class_name => 'MarketHistory'
-  has_many :stock_history, :foreign_key => 'market_id', :class_name => 'StockHistory'
-  
-  def gdp
+    belongs_to :project
+    has_many :history, :foreign_key => 'market_id', :class_name => 'MarketHistory'
+    has_many :stock_history, :foreign_key => 'market_id', :class_name => 'StockHistory'
+
+    def gdp
     self[:price] * self[:volume]
-  end
-  
-  def gni
+    end
+
+    def gni
     sum = self.gdp
     Project.where(parent_id: self[:project_id]).each do |subp|
-      subm = Market.where(project_id: subp.id).first
-      if subm
+        subm = Market.where(project_id: subp.id).first
+        if subm
         sum += subm.gni
-      end
+        end
     end
     sum
-  end
-  
+    end
+
     def post(history)
         history.market = self
         history.volume = self.volume += history.dv
@@ -31,7 +31,16 @@ class Market < ActiveRecord::Base
         history.save({ :validate => false })
         
         history
-  end
+    end
+
+    def economy()
+        return Frumple::Econ::FairEconomy.new()
+    end
+
+    def dispatch(event)
+        e = self.economy()
+        e.dispatch(event)
+    end
   
 end
 
