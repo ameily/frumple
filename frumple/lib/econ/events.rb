@@ -9,6 +9,12 @@ module Frumple
             attr_accessor :market
             attr_accessor :stock
             attr_accessor :timestamp
+            
+            def fire()
+                if self.market
+                    self.market.dispatch(self)
+                end
+            end
         end
         
         class ProjectEvent < Event
@@ -18,7 +24,7 @@ module Frumple
         class ProjectCreateEvent < ProjectEvent
             def initialize(project)
                 @project = project
-                @market = project.market
+                @market = nil
                 @stock = nil
                 @timestamp = project.created_on
                 @trigger = 'project.create'
@@ -32,7 +38,7 @@ module Frumple
         class UserRegisterEvent < UserEvent
             def initialize(user)
                 @user = user
-                @stock = user.stock
+                @stock = nil
                 @market = nil
                 @timestamp = user.created_on
                 @trigger = "user.register"
@@ -160,8 +166,84 @@ module Frumple
             end
         end
         
+        class JournalEvent < Event
+            attr_accessor :journal
+        end
+        
+        class JournalDetailEvent
+            attr_accessor :detail
+        end
+        
+        class IssueAssignEvent < JournalDetailEvent
+            def initialize(journal, detail)
+                @detail = detail
+                @journal = journal
+            end
+        end
+        
+        class IssueStatusEvent < JournalDetailEvent
+            def initialize(journal, detail)
+                @detail = detail
+                @journal = journal
+            end
+        end
+        
+        class JournalCreateEvent < JournalEvent
+            attr_accessor :children
+            
+            def initialize(journal)
+                @journal = journal
+                @stock = journal.user ? journal.user.stock : nil
+                @market = journal.project.market
+                @timestamp = journal.created_on
+                @children = [ ]
+            end
+            
+            def self.Specialized(journal)
+                spec = nil
+                case journal.journalized_type
+                when "Issue"
+                    spec = IssueJournalCreateEvent.new(journal)
+                else
+                    spec = JournalCreateEvent.new(journal)
+                end
+                
+                return spec
+            end
+        end
+        
+        class IssueJournalCreateEvent < IssueEvent
+            attr_accessor :issue
+            
+            def initialize(journal)
+                super(journal)
+                @issue = journal.issue
+                @trigger = "issue.#{@issue.id}.update.#{journal.id}"
+                
+                journal.details.each do |detail|
+                    case detail.prop_key
+                    when "assigned_to_id"
+                        @children << IssueAssignEvent.new(journal, detail)
+                    when "status_id"
+                        @children << IssueStatusEvent.new(journal, detail)
+                    end
+                end
+            end
+        end
+        
+        
         class IssueEvent < Event
             attr_accessor :issue
+        end
+        
+        class IssueCreateEvent < IssueEvent
+            def initialize(issue)
+                @issue = issue
+                @trigger = "issue.create.#{issue.id}"
+                @stock = issue.author.stock
+                @market = issue.project.market
+                @timestamp = issue.created_on
+            end
         end
     end
   end
