@@ -9,6 +9,7 @@ require_dependency 'hooks/repo'
 require_dependency 'hooks/project'
 require_dependency 'hooks/user'
 require_dependency 'hooks/issue'
+require_dependency 'hooks/journal'
 
 
 ActiveRecord::Base.observers << Frumple::Hooks::AttachmentObserver      \
@@ -18,7 +19,8 @@ ActiveRecord::Base.observers << Frumple::Hooks::AttachmentObserver      \
                              << Frumple::Hooks::ChangesetObserver       \
                              << Frumple::Hooks::UserObserver            \
                              << Frumple::Hooks::ProjectObserver         \
-                             << Frumple::Hooks::IssueObserver
+                             << Frumple::Hooks::IssueObserver           \
+                             << Frumple::Hooks::JournalDetailObserver
 
 
 Redmine::Plugin.register :frumple do
