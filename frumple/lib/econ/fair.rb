@@ -154,6 +154,20 @@ module Frumple
             )
         end
         
+        def on_issue_create(event)
+        end
+
+        def on_issue_delete(event)
+        end
+
+        def on_issue_reassign(event)
+        end
+
+        def on_issue_status_change(event)
+            if event.to_status.is_closed
+                # TODO is rejected = closed?
+            end
+        end
     end
   end
 end

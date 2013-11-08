@@ -15,6 +15,8 @@ module Frumple
                 self.on_wiki_event(event)
             when Events::IssueEvent
                 self.on_issue_event(event)
+            when Events::JournalDetailEvent
+                self.on_journal_detail_event(event)
             else
                 raise NotImplementedError
             end
@@ -110,6 +112,60 @@ module Frumple
         
         # Issue Events
         def on_issue_event(event)
+            case event
+            when Events::IssueCreateEvent
+                self.on_issue_create(event)
+            when Events::IssueDeleteEvent
+                self.on_issue_delete(event)
+            else
+                raise NotImplementedError
+            end
+        end
+
+        def on_issue_create(event)
+            raise NotImplementedError
+        end
+
+        def on_issue_delete(event)
+            raise NotImplementedError
+        end
+
+
+        # Journal Detail Events
+        def on_journal_detail_event(event)
+            case event
+            when Events::JournalDetailCreateEvent
+                self.on_journal_detail_create(event)
+            else
+                raise NotImplementedError
+            end
+        end
+
+        def on_journal_detail_create(event)
+            case event
+            when Events::IssueJournalDetailCreateEvent
+                self.on_issue_journal_detail_create(event)
+            else
+                raise NotImplementedError
+            end
+        end
+
+        def on_issue_journal_detail_create(event)
+            case event
+            when Events::IssueReassignEvent
+                self.on_issue_reassign(event)
+            when Events::IssueStatusChangeEvent
+                self.on_issue_status_change(event)
+            else
+                raise NotImplementedError
+            end
+        end
+
+        def on_issue_reassign(event)
+            raise NotImplementedError
+        end
+
+        def on_issue_status_change(event)
             raise NotImplementedError
         end
     end

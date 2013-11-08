@@ -166,71 +166,77 @@ module Frumple
             end
         end
         
+        ###### Journal Events #######
+
         class JournalEvent < Event
             attr_accessor :journal
         end
         
-        class JournalDetailEvent
+        class JournalDetailEvent < Event
             attr_accessor :detail
+            attr_accessor :journal
         end
-        
-        class IssueAssignEvent < JournalDetailEvent
-            def initialize(journal, detail)
+
+        class JournalDetailCreateEvent < JournalDetailEvent
+            def initialize(detail)
+                @timestamp = detail.created_on
                 @detail = detail
-                @journal = journal
+                @journal = @detail.journal
+                @stock = @journal.user.stock
+                @market = @journal.project.market
             end
-        end
-        
-        class IssueStatusEvent < JournalDetailEvent
-            def initialize(journal, detail)
-                @detail = detail
-                @journal = journal
-            end
-        end
-        
-        class JournalCreateEvent < JournalEvent
-            attr_accessor :children
-            
-            def initialize(journal)
-                @journal = journal
-                @stock = journal.user ? journal.user.stock : nil
-                @market = journal.project.market
-                @timestamp = journal.created_on
-                @children = [ ]
-            end
-            
-            def self.Specialized(journal)
-                spec = nil
-                case journal.journalized_type
-                when "Issue"
-                    spec = IssueJournalCreateEvent.new(journal)
+
+            def self.Spec(detail)
+                case detail.journalized_type
+                when 'Issue'
+                    return IssueJournalCreateEvent.Spec(detail)
                 else
-                    spec = JournalCreateEvent.new(journal)
+                    return nil
                 end
-                
-                return spec
             end
         end
-        
-        class IssueJournalCreateEvent < IssueEvent
+
+        class IssueJournalDetailCreateEvent < JournalDetailCreateEvent
             attr_accessor :issue
-            
-            def initialize(journal)
-                super(journal)
-                @issue = journal.issue
-                @trigger = "issue.#{@issue.id}.update.#{journal.id}"
-                
-                journal.details.each do |detail|
-                    case detail.prop_key
-                    when "assigned_to_id"
-                        @children << IssueAssignEvent.new(journal, detail)
-                    when "status_id"
-                        @children << IssueStatusEvent.new(journal, detail)
-                    end
+            def initialize(detail)
+                super(detail)
+                @issue = @journal.issue
+            end
+
+            def self.Spec(detail)
+                case detail.prop_key
+                when "status_id"
+                    return IssueStatusChangeEvent.new(detail)
+                when "assigned_to_id"
+                    return IssueReassignEvent.new(detail)
+                else
+                    return nil
                 end
             end
         end
         
+        class IssueReassignEvent < IssueJournalDetailCreateEvent
+            attr_accessor :from_user
+            attr_accessor :to_user
+
+            def initialize(detail)
+                super(detail)
+                @from_user = @detail.old_value ? User.find(@detail.old_value) : nil
+                @to_user = @detail.value ? User.find(@detail.value) : nil
+                @trigger = "issue.#{@issue.id}.reassign"
+            end
+        end
+        
+        class IssueStatusChangeEvent < IssueJournalDetailCreateEvent
+            attr_accessor :from_status
+            attr_accessor :to_status
+            def initialize(detail)
+                super(detail)
+                @from_status = @detail.old_value ? IssueStatus.find(detail.old_value) : nil
+                @to_status = detail.value ? IssueStatus.find(detail.value) : nil
+                @trigger = "issue.#{@issue.id}.status.#{@to_status.name}"
+            end
+        end
         
         class IssueEvent < Event
             attr_accessor :issue
@@ -243,6 +249,16 @@ module Frumple
                 @stock = issue.author.stock
                 @market = issue.project.market
                 @timestamp = issue.created_on
+            end
+        end
+
+        class IssueDeleteEvent < IssueEvent
+            def initialize(issue)
+                @issue = issue
+                @trigger = "issue.delete.#{@issue.id}"
+                @stock = issue.author.stock
+                @market = issue.project.market
+                @timestamp = DateTime.now()
             end
         end
     end
