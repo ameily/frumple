@@ -8,6 +8,11 @@ module Frumple
                 event = Events::IssueCreateEvent.new(issue)
                 event.fire()
             end
+
+            def after_destroy(issue)
+                event = Events::IssueDeleteEvent.new(issue)
+                event.fire()
+            end
         end
     end
 end
